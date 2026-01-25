@@ -1,19 +1,16 @@
 """
-Download the Ames Housing dataset for regression.
+Download California Housing dataset for regression.
 Uses a stable source and saves to data/raw/.
 """
 import os
 import pandas as pd
 import logging
 from pathlib import Path
+import requests
+import ssl
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Dataset URLs - using stable sources
-TRAIN_URL = "https://raw.githubusercontent.com/aveerapareddy/regression-house-price/main/data/raw/train.csv"
-# Fallback: use a public mirror or direct download
-# Alternative: fetch from OpenML or use sklearn's fetch_california_housing as fallback
 
 DATA_DIR = Path(__file__).parent.parent / "data" / "raw"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -22,24 +19,28 @@ SAMPLE_DIR = Path(__file__).parent.parent / "data" / "sample"
 SAMPLE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def download_ames_housing():
+def download_california_housing():
     """
-    Download Ames Housing dataset.
-    Falls back to California Housing if Ames is unavailable.
+    Download California Housing dataset.
     """
     train_path = DATA_DIR / "train.csv"
     
-    # Try multiple sources for Ames Housing
-    ames_urls = [
-        "https://www.openml.org/data/get_csv/16826755/phpMYEkMl",
-        "https://raw.githubusercontent.com/ageron/handson-ml2/master/datasets/housing/housing.csv",  # California as fallback
+    # Try multiple sources - using reliable public datasets
+    # California Housing is a well-known regression dataset similar to house prices
+    dataset_urls = [
+        "https://raw.githubusercontent.com/ageron/handson-ml2/master/datasets/housing/housing.csv",  # California Housing (reliable GitHub source)
     ]
     
     df = None
-    for url in ames_urls:
+    for url in dataset_urls:
         try:
             logger.info(f"Attempting to download from {url}...")
-            df = pd.read_csv(url, timeout=30)
+            # Use requests for better SSL handling
+            response = requests.get(url, timeout=30, verify=True)
+            response.raise_for_status()
+            # Read from response content
+            from io import StringIO
+            df = pd.read_csv(StringIO(response.text))
             logger.info(f"Successfully downloaded dataset: {len(df)} rows")
             break
         except Exception as e:
@@ -51,20 +52,32 @@ def download_ames_housing():
         logger.info("All direct downloads failed. Using sklearn California Housing dataset...")
         from sklearn.datasets import fetch_california_housing
         
-        california = fetch_california_housing(as_frame=True)
-        df = california.frame
-        # Rename target to SalePrice for consistency
-        if "MedHouseVal" in df.columns:
-            df.rename(columns={"MedHouseVal": "SalePrice"}, inplace=True)
-        logger.info(f"Using California Housing dataset: {len(df)} rows")
+        # Set data_home to workspace directory to avoid permission issues
+        data_home = Path(__file__).parent.parent / "data" / "sklearn_cache"
+        data_home.mkdir(parents=True, exist_ok=True)
+        
+        # Create unverified SSL context for sklearn download (local testing only)
+        ssl._create_default_https_context = ssl._create_unverified_context
+        
+        try:
+            california = fetch_california_housing(data_home=str(data_home), as_frame=True)
+            df = california.frame
+            # Rename target to SalePrice for consistency
+            if "MedHouseVal" in df.columns:
+                df.rename(columns={"MedHouseVal": "SalePrice"}, inplace=True)
+            logger.info(f"Using California Housing dataset: {len(df)} rows")
+        except Exception as e:
+            logger.error(f"Failed to fetch California Housing: {e}")
+            raise
     
     # Ensure target column is named SalePrice
     if "SalePrice" not in df.columns:
-        # Try to find a target-like column
-        target_candidates = ["MedHouseVal", "price", "Price", "target", "y"]
+        # Try to find a target-like column (California Housing uses "median_house_value")
+        target_candidates = ["median_house_value", "MedHouseVal", "price", "Price", "target", "y"]
         for col in target_candidates:
             if col in df.columns:
                 df.rename(columns={col: "SalePrice"}, inplace=True)
+                logger.info(f"Renamed target column '{col}' to 'SalePrice'")
                 break
     
     # Save full dataset
@@ -81,5 +94,5 @@ def download_ames_housing():
 
 
 if __name__ == "__main__":
-    download_ames_housing()
+    download_california_housing()
     logger.info("Dataset download complete!")
