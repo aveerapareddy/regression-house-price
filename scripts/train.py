@@ -1,6 +1,6 @@
 """
-Train a linear regression model on the house price dataset.
-Saves the model pipeline, metrics, and preprocessing artifacts.
+Train linear and higher-capacity models on the house price dataset.
+Saves model pipelines, metrics, and preprocessing artifacts.
 """
 import sys
 import json
@@ -14,6 +14,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import joblib
 
@@ -107,18 +108,40 @@ def create_preprocessor(X: pd.DataFrame):
     return preprocessor, numeric_cols, categorical_cols
 
 
-def train_linear_model(X, y):
-    """Train a linear regression model with preprocessing."""
-    logger.info("Creating preprocessing pipeline...")
+def train_model(X, y, model_type="linear"):
+    """
+    Train a model with preprocessing.
+    
+    Args:
+        X: Features
+        y: Target
+        model_type: "linear" or "random_forest"
+    """
+    logger.info(f"Creating preprocessing pipeline for {model_type}...")
     preprocessor, numeric_cols, categorical_cols = create_preprocessor(X)
+    
+    # Choose regressor
+    if model_type == "linear":
+        regressor = LinearRegression()
+    elif model_type == "random_forest":
+        regressor = RandomForestRegressor(
+            n_estimators=100,
+            max_depth=20,
+            min_samples_split=5,
+            min_samples_leaf=2,
+            random_state=RANDOM_SEED,
+            n_jobs=-1
+        )
+    else:
+        raise ValueError(f"Unknown model type: {model_type}")
     
     # Create full pipeline
     model = Pipeline(steps=[
         ("preprocessor", preprocessor),
-        ("regressor", LinearRegression())
+        ("regressor", regressor)
     ])
     
-    # Split data
+    # Split data (same split for both models)
     X_train, X_val, y_train, y_val = train_test_split(
         X, y, test_size=VALIDATION_SIZE, random_state=RANDOM_SEED
     )
@@ -127,7 +150,7 @@ def train_linear_model(X, y):
     logger.info(f"Validation set: {len(X_val)} samples")
     
     # Train
-    logger.info("Training linear regression model...")
+    logger.info(f"Training {model_type} model...")
     model.fit(X_train, y_train)
     
     # Evaluate
@@ -143,7 +166,7 @@ def train_linear_model(X, y):
     val_mae = mean_absolute_error(y_val, y_val_pred)
     
     metrics = {
-        "model": "linear",
+        "model": model_type,
         "train": {
             "mse": float(train_mse),
             "rmse": float(train_rmse),
@@ -161,38 +184,41 @@ def train_linear_model(X, y):
         }
     }
     
-    logger.info(f"Training RMSE: {train_rmse:.2f}")
-    logger.info(f"Validation RMSE: {val_rmse:.2f}")
+    logger.info(f"{model_type.upper()} - Training RMSE: {train_rmse:.2f}")
+    logger.info(f"{model_type.upper()} - Validation RMSE: {val_rmse:.2f}")
     
     return model, metrics, X_train, X_val, y_train, y_val
 
 
-def save_artifacts(model, metrics, feature_cols):
+def save_artifacts(model, metrics, feature_cols, model_type="linear"):
     """Save model and metrics to artifacts directory."""
     # Save model
-    model_path = ARTIFACTS_DIR / "linear_model.joblib"
+    model_filename = f"{model_type}_model.joblib"
+    model_path = ARTIFACTS_DIR / model_filename
     joblib.dump(model, model_path)
     logger.info(f"Saved model to {model_path}")
     
     # Save metrics
-    metrics_path = ARTIFACTS_DIR / "linear_metrics.json"
+    metrics_filename = f"{model_type}_metrics.json"
+    metrics_path = ARTIFACTS_DIR / metrics_filename
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2)
     logger.info(f"Saved metrics to {metrics_path}")
     
-    # Save feature info
-    feature_info = {
-        "feature_columns": feature_cols,
-        "target_column": "SalePrice"
-    }
-    feature_path = ARTIFACTS_DIR / "feature_info.json"
-    with open(feature_path, "w") as f:
-        json.dump(feature_info, f, indent=2)
-    logger.info(f"Saved feature info to {feature_path}")
+    # Save feature info (only once, same for both models)
+    if model_type == "linear":
+        feature_info = {
+            "feature_columns": feature_cols,
+            "target_column": "SalePrice"
+        }
+        feature_path = ARTIFACTS_DIR / "feature_info.json"
+        with open(feature_path, "w") as f:
+            json.dump(feature_info, f, indent=2)
+        logger.info(f"Saved feature info to {feature_path}")
 
 
 def main():
-    """Main training function."""
+    """Main training function - trains both linear and random forest models."""
     logger.info("Starting training pipeline...")
     
     # Load data
@@ -201,11 +227,47 @@ def main():
     # Prepare features and target
     X, y, feature_cols = prepare_features_target(df)
     
-    # Train model
-    model, metrics, X_train, X_val, y_train, y_val = train_linear_model(X, y)
+    # Train linear model
+    logger.info("=" * 60)
+    logger.info("Training LINEAR model...")
+    logger.info("=" * 60)
+    linear_model, linear_metrics, X_train, X_val, y_train, y_val = train_model(X, y, "linear")
+    save_artifacts(linear_model, linear_metrics, feature_cols, "linear")
     
-    # Save artifacts
-    save_artifacts(model, metrics, feature_cols)
+    # Train random forest model
+    logger.info("=" * 60)
+    logger.info("Training RANDOM FOREST model...")
+    logger.info("=" * 60)
+    rf_model, rf_metrics, _, _, _, _ = train_model(X, y, "random_forest")
+    save_artifacts(rf_model, rf_metrics, feature_cols, "random_forest")
+    
+    # Compare models
+    logger.info("=" * 60)
+    logger.info("Model Comparison:")
+    logger.info("=" * 60)
+    logger.info(f"Linear - Validation RMSE: {linear_metrics['validation']['rmse']:.2f}")
+    logger.info(f"Random Forest - Validation RMSE: {rf_metrics['validation']['rmse']:.2f}")
+    
+    # Determine best model
+    if rf_metrics['validation']['rmse'] < linear_metrics['validation']['rmse']:
+        best_model = "random_forest"
+        logger.info("Best model: Random Forest (lower validation RMSE)")
+    else:
+        best_model = "linear"
+        logger.info("Best model: Linear (lower validation RMSE)")
+    
+    # Save best model info
+    best_model_info = {
+        "best_model": best_model,
+        "best_validation_rmse": min(
+            linear_metrics['validation']['rmse'],
+            rf_metrics['validation']['rmse']
+        )
+    }
+    best_model_path = ARTIFACTS_DIR / "best_model.json"
+    with open(best_model_path, "w") as f:
+        json.dump(best_model_info, f, indent=2)
+    logger.info(f"Saved best model info to {best_model_path}")
     
     logger.info("Training complete!")
 

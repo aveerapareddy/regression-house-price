@@ -216,6 +216,109 @@ docker-compose up --build
 
 ---
 
+## Day 2: Higher-Capacity Model + Evaluation
+
+### Step 1: Train Both Models (Linear + Random Forest)
+
+```bash
+cd "/Users/akhileshv/Documents/personal/Machine Learning/month1/regression-house-price"
+python3 scripts/train.py
+```
+
+**Expected output:**
+- "Training LINEAR model..."
+- "Training set: X samples"
+- "Validation set: Y samples"
+- "LINEAR - Training RMSE: [number]"
+- "LINEAR - Validation RMSE: [number]"
+- "Training RANDOM FOREST model..."
+- "RANDOM FOREST - Training RMSE: [number]"
+- "RANDOM FOREST - Validation RMSE: [number]"
+- "Model Comparison:"
+- "Best model: [linear/random_forest]"
+
+**Verify artifacts:**
+```bash
+ls -lh backend/artifacts/
+# Should see:
+# - linear_model.joblib
+# - random_forest_model.joblib
+# - linear_metrics.json
+# - random_forest_metrics.json
+# - best_model.json
+```
+
+---
+
+### Step 2: Generate Evaluation Data and Learning Curves
+
+```bash
+cd "/Users/akhileshv/Documents/personal/Machine Learning/month1/regression-house-price"
+python3 scripts/evaluate.py
+```
+
+**Expected output:**
+- "Generating learning curves for linear..."
+- "Generating learning curves for random_forest..."
+- "Evaluation Summary:"
+- "Linear - Train RMSE: X, Val RMSE: Y"
+- "Random Forest - Train RMSE: X, Val RMSE: Y"
+- "Best model: [model_name]"
+- "Saved evaluation data to backend/artifacts/evaluation_data.json"
+
+**Verify evaluation data:**
+```bash
+ls -lh backend/artifacts/evaluation_data.json
+cat backend/artifacts/evaluation_data.json | head -20
+```
+
+---
+
+### Step 3: Test the Metrics Endpoint
+
+**Make sure backend is running (from Day 1, Step 4):**
+```bash
+cd "/Users/akhileshv/Documents/personal/Machine Learning/month1/regression-house-price/backend"
+uvicorn app.main:app --reload
+```
+
+**Test the metrics endpoint (in browser or new terminal):**
+```bash
+curl http://localhost:8000/metrics
+```
+
+**Or open in browser:**
+- Go to: `http://localhost:8000/metrics`
+- Should see JSON with:
+  - `learning_curves` for both models
+  - `comparison` metrics
+  - `models` data with train/val RMSE, MSE, MAE
+
+**Test via API docs:**
+- Go to: `http://localhost:8000/docs`
+- Click on `GET /metrics`
+- Click "Try it out" → "Execute"
+- View the response with all metrics and learning curves
+
+---
+
+### Day 2 Quick Reference
+
+```bash
+# Step 1: Train both models
+cd "/Users/akhileshv/Documents/personal/Machine Learning/month1/regression-house-price"
+python3 scripts/train.py
+
+# Step 2: Generate evaluation data
+python3 scripts/evaluate.py
+
+# Step 3: Test metrics endpoint (backend must be running)
+curl http://localhost:8000/metrics
+# Or visit: http://localhost:8000/metrics
+```
+
+---
+
 ## Troubleshooting
 
 ### "Module not found" error / "No module named 'app'" or "No module named 'backend'"
@@ -278,6 +381,32 @@ lsof -ti:3000 | xargs kill -9
 # Use pip3 instead of pip
 ```
 
+### Day 2: "No module named 'sklearn.ensemble'" or Random Forest errors
+```bash
+# Make sure scikit-learn is installed
+cd backend
+pip3 install -r requirements.txt
+```
+
+### Day 2: "FileNotFoundError: evaluation_data.json"
+```bash
+# Make sure you ran both train.py and evaluate.py
+python3 scripts/train.py
+python3 scripts/evaluate.py
+```
+
+### Day 2: Metrics endpoint returns 404
+```bash
+# Check if evaluation_data.json exists
+ls -lh backend/artifacts/evaluation_data.json
+
+# If not, run evaluation script
+python3 scripts/evaluate.py
+
+# Or check if individual metrics exist
+ls -lh backend/artifacts/*_metrics.json
+```
+
 ---
 
 ## What to Explore
@@ -304,9 +433,8 @@ cat backend/artifacts/feature_info.json
 
 ---
 
-## Next Steps (Day 2+)
+## Next Steps (Day 3+)
 
-- Day 2: Higher-capacity model, evaluation pipeline, metrics endpoint
 - Day 3: Predict API, schema endpoint, validation, logging
 - Day 4: UI Predict page
 - Day 5: UI Dashboard with bias-variance explanation
