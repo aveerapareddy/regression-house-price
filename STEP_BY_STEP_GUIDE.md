@@ -319,6 +319,137 @@ curl http://localhost:8000/metrics
 
 ---
 
+## Day 3: Predict API + Schema + Validation
+
+### Step 1: Test Schema Endpoint
+
+**Make sure backend is running (from Day 1, Step 4):**
+```bash
+cd "/Users/akhileshv/Documents/personal/Machine Learning/month1/regression-house-price/backend"
+uvicorn app.main:app --reload
+```
+
+**Test the schema endpoint (in browser or new terminal):**
+```bash
+curl http://localhost:8000/schema
+```
+
+**Or open in browser:**
+- Go to: `http://localhost:8000/schema`
+- Should see JSON with:
+  - `features` - List of feature definitions with types and categories
+  - `target` - "SalePrice"
+  - `model_options` - ["best", "linear", "random_forest"]
+
+---
+
+### Step 2: Test Predict Endpoint
+
+**Test with minimal input (only required fields):**
+```bash
+curl -X POST "http://localhost:8000/predict?model=best" \
+  -H "Content-Type: application/json" \
+  -d '{"longitude": -122.23, "latitude": 37.88}'
+```
+
+**Test with full input:**
+```bash
+curl -X POST "http://localhost:8000/predict?model=best" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "longitude": -122.23,
+    "latitude": 37.88,
+    "housing_median_age": 41.0,
+    "total_rooms": 880.0,
+    "total_bedrooms": 129.0,
+    "population": 322.0,
+    "households": 126.0,
+    "median_income": 8.3252,
+    "ocean_proximity": "NEAR BAY"
+  }'
+```
+
+**Expected response:**
+```json
+{
+  "predicted_price": 452600.0,
+  "model_used": "linear",
+  "confidence_note": "Prediction made using linear model. Model validation RMSE available at /metrics endpoint."
+}
+```
+
+**Test different models:**
+```bash
+# Use linear model
+curl -X POST "http://localhost:8000/predict?model=linear" \
+  -H "Content-Type: application/json" \
+  -d '{"longitude": -122.23, "latitude": 37.88}'
+
+# Use random forest model
+curl -X POST "http://localhost:8000/predict?model=random_forest" \
+  -H "Content-Type: application/json" \
+  -d '{"longitude": -122.23, "latitude": 37.88}'
+```
+
+---
+
+### Step 3: Test Logs Endpoint
+
+**Test logs endpoint (IMPORTANT: Quote the URL for zsh):**
+```bash
+# For zsh/bash - quote the URL
+curl "http://localhost:8000/logs?limit=10"
+
+# Or use --globoff flag
+curl --globoff "http://localhost:8000/logs?limit=10"
+```
+
+**Or open in browser:**
+- Go to: `http://localhost:8000/logs?limit=10`
+- Should see JSON with:
+  - `logs` - Array of recent predictions
+  - `total` - Number of logs returned
+
+---
+
+### Step 4: Run Tests
+
+**Run prediction tests:**
+```bash
+cd "/Users/akhileshv/Documents/personal/Machine Learning/month1/regression-house-price/backend"
+pytest tests/test_predict.py -v
+```
+
+**Expected output:**
+```
+tests/test_predict.py::test_schema_endpoint PASSED
+tests/test_predict.py::test_predict_endpoint_valid_input PASSED
+tests/test_predict.py::test_predict_endpoint_minimal_input PASSED
+...
+```
+
+---
+
+### Day 3 Quick Reference
+
+```bash
+# Test schema
+curl http://localhost:8000/schema
+
+# Test predict (quote URL for zsh)
+curl -X POST "http://localhost:8000/predict?model=best" \
+  -H "Content-Type: application/json" \
+  -d '{"longitude": -122.23, "latitude": 37.88}'
+
+# Test logs (quote URL for zsh)
+curl "http://localhost:8000/logs?limit=10"
+
+# Run tests
+cd backend && pytest tests/test_predict.py -v
+```
+
+---
+
 ## Troubleshooting
 
 ### "Module not found" error / "No module named 'app'" or "No module named 'backend'"
@@ -405,6 +536,35 @@ python3 scripts/evaluate.py
 
 # Or check if individual metrics exist
 ls -lh backend/artifacts/*_metrics.json
+```
+
+### Day 3: zsh "no matches found" error with curl
+```bash
+# zsh interprets ? as a glob pattern - quote the URL
+curl "http://localhost:8000/logs?limit=10"
+
+# Or use --globoff flag
+curl --globoff "http://localhost:8000/logs?limit=10"
+
+# Or escape the ?
+curl http://localhost:8000/logs\?limit=10
+```
+
+### Day 3: Predict endpoint returns 404 "Model not found"
+```bash
+# Make sure models are trained
+python3 scripts/train.py
+
+# Check if models exist
+ls -lh backend/artifacts/*_model.joblib
+```
+
+### Day 3: Database errors
+```bash
+# Database is auto-created on startup
+# If issues persist, delete and restart:
+rm backend/predictions.db
+# Then restart backend server
 ```
 
 ---

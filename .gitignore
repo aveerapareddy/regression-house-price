@@ -212,6 +212,7 @@ data/raw/
 *.db
 *.sqlite
 *.sqlite3
+backend/predictions.db
 .env
 .env.local
 frontend/dist/

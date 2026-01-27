@@ -110,7 +110,7 @@ docker-compose up --build
 ## Day 2: Higher-Capacity Model + Unified Evaluation ✅
 
 **Date**: 2025-01-25  
-**Status**: In Progress
+**Status**: Complete
 
 ### What Was Implemented
 
@@ -186,10 +186,103 @@ uvicorn app.main:app --reload
 
 ---
 
-## Day 3: Predict API + Schema + Validation
+## Day 3: Predict API + Schema + Validation ✅
 
-**Date**: TBD  
-**Status**: Pending
+**Date**: 2025-01-25  
+**Status**: Complete
+
+### What Was Implemented
+
+1. **Pydantic Models (`backend/app/models.py`)**
+   - `PredictionRequest` - Input validation for prediction requests
+   - `PredictionResponse` - Response format for predictions
+   - `SchemaResponse` - Feature schema for UI
+   - `LogEntry` and `LogsResponse` - Logging models
+   - Field validation with constraints (lat/long ranges, non-negative values)
+
+2. **Service Layer (`backend/app/services.py`)**
+   - `load_model()` - Load trained models (linear, random_forest, or best)
+   - `load_feature_info()` - Load feature column information
+   - `prepare_input_data()` - Convert request dict to DataFrame
+   - `predict_price()` - Make predictions using loaded models
+
+3. **Database Module (`backend/app/database.py`)**
+   - SQLite database for prediction logging
+   - `init_db()` - Initialize database on startup
+   - `log_prediction()` - Log predictions with sanitized input (no PII)
+   - `get_recent_logs()` - Retrieve recent prediction logs
+
+4. **API Endpoints (`backend/app/main.py`)**
+   - `GET /schema` - Returns feature schema with types, categories, and requirements
+   - `POST /predict` - Predict house price with model selection (query param: model=best|linear|random_forest)
+   - `GET /logs` - Get recent prediction logs (optional, limit parameter)
+   - Automatic database initialization on startup
+
+5. **Unit Tests (`backend/tests/test_predict.py`)**
+   - Tests for schema endpoint
+   - Tests for predict endpoint with valid/invalid inputs
+   - Tests for input validation errors
+   - Tests for logs endpoint
+   - Test database setup/teardown
+
+### API Endpoints
+
+**GET /schema**
+- Returns feature definitions, types, categories
+- Model options available
+- Used by UI to generate forms
+
+**POST /predict?model=best**
+- Accepts JSON with house features
+- Returns predicted price, model used, confidence note
+- Logs prediction to SQLite database
+- Supports model selection: "best", "linear", or "random_forest"
+
+**GET /logs?limit=100**
+- Returns recent prediction logs
+- Includes timestamp, model used, predicted price, input summary
+- Limit parameter (1-1000)
+
+### Input Validation
+
+- Required fields: longitude, latitude
+- Optional fields: All other features (handled by imputer)
+- Validation: Lat/long ranges, non-negative numeric values
+- Categorical: ocean_proximity with allowed categories
+
+### Files Created/Modified
+
+- `backend/app/models.py` - New Pydantic models
+- `backend/app/services.py` - New service layer
+- `backend/app/database.py` - New database module
+- `backend/app/main.py` - Added schema, predict, logs endpoints
+- `backend/tests/test_predict.py` - New test suite
+- `.gitignore` - Added predictions.db
+
+### How to Run
+
+```bash
+# Start backend
+cd backend
+uvicorn app.main:app --reload
+
+# Test endpoints
+curl http://localhost:8000/schema
+curl -X POST http://localhost:8000/predict?model=best \
+  -H "Content-Type: application/json" \
+  -d '{"longitude": -122.23, "latitude": 37.88, "median_income": 8.3252}'
+curl http://localhost:8000/logs?limit=10
+
+# Run tests
+pytest tests/test_predict.py -v
+```
+
+### What Remains
+
+- Day 4: UI Predict page
+- Day 5: UI Dashboard with bias-variance explanation
+- Day 6: Testing, CI, hardening
+- Day 7: Production deployment
 
 ---
 
