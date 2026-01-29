@@ -1,0 +1,38 @@
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(51, 65, 85, 0.5) 0%,
+    rgba(71, 85, 105, 0.5) 50%,
+    rgba(51, 65, 85, 0.5) 100%
+  );
+  background-size: 200% 100%;
+  animation: loading 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton.mb-2 {
+  margin-bottom: 0.5rem;
+}
+
+.skeleton.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.form-skeleton {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
